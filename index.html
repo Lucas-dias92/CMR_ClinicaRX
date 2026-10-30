@@ -161,6 +161,15 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
 .geo-popup .gp-link{font-size:.76rem; color:#b0532a; font-weight:600; text-decoration:none}
 .geo-popup .gp-link:hover{text-decoration:underline}
 
+.geo-toggle{display:flex; align-items:center; gap:6px; font-size:.76rem; color:var(--muted); margin-top:8px}
+.geo-toggle input{accent-color:var(--accent)}
+.leaflet-tooltip.zone-label{
+  background:rgba(255,255,255,.92); border:none; box-shadow:0 1px 4px rgba(0,0,0,.25);
+  font-weight:700; font-size:.68rem; color:#2a2518; padding:3px 9px; border-radius:999px;
+  font-family:"Inter",sans-serif; white-space:nowrap;
+}
+.leaflet-tooltip.zone-label::before{display:none}
+
 @media (max-width: 860px){
   .board{grid-template-columns:1fr; overflow-x:visible}
   .col{min-width:0}
@@ -250,6 +259,7 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
   <div class="mapwrap" id="geoMapWrap" style="display:none">
     <div class="radar-head">
       <strong>Mapa real</strong> — pinos nas posições geográficas reais (OpenStreetMap, sem precisar de chave de API). Clique ou passe o mouse em cima de um pino: abre um mini Google Maps daquela clínica, e dá pra clicar em "Ver no Google Maps" pra abrir fotos, Street View e avaliações direto no Google. Respeita os mesmos filtros de cidade, categoria e busca.
+      <label class="geo-toggle"><input type="checkbox" id="zonesToggle" checked> Mostrar contorno de cidade/zona</label>
     </div>
     <div class="geo-stage" id="geoMap"></div>
   </div>
@@ -560,7 +570,120 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
 
   var geoMapInstance = null;
   var geoMarkersLayer = null;
+  var zoneLayer = null;
+  var currentShowZones = true;
   var geoColors = { hum: "#4f7cac", odo: "#b0532a", vet: "#3f7d52", hos: "#9c4f6e" };
+  var CITY_COLORS = {
+    "Caraguatatuba": "#b0532a",
+    "São Sebastião": "#4f7cac",
+    "Ilhabela": "#3f7d52",
+    "São José dos Campos": "#9c4f6e",
+    "Sorocaba": "#7d5fb0"
+  };
+
+  function convexHull(pts){
+    if (pts.length < 3) return pts.slice();
+    var sorted = pts.slice().sort(function(a,b){ return a[0]-b[0] || a[1]-b[1] });
+    function cross(o,a,b){ return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]); }
+    var lower = [];
+    for (var i=0;i<sorted.length;i++){
+      var p = sorted[i];
+      while (lower.length>=2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    var upper = [];
+    for (var j=sorted.length-1;j>=0;j--){
+      var q = sorted[j];
+      while (upper.length>=2 && cross(upper[upper.length-2], upper[upper.length-1], q) <= 0) upper.pop();
+      upper.push(q);
+    }
+    lower.pop(); upper.pop();
+    return lower.concat(upper);
+  }
+
+  function centroidOf(pts){
+    var sLat = 0, sLon = 0;
+    pts.forEach(function(p){ sLat += p[0]; sLon += p[1]; });
+    return [sLat / pts.length, sLon / pts.length];
+  }
+
+  function inflateHull(hull, centroid, factor){
+    return hull.map(function(p){
+      return [
+        centroid[0] + (p[0] - centroid[0]) * factor,
+        centroid[1] + (p[1] - centroid[1]) * factor
+      ];
+    });
+  }
+
+  function zoneOf(lat, lon, centroid, centerRadiusKm){
+    var d = haversine(centroid[0], centroid[1], lat, lon);
+    if (d < centerRadiusKm) return "Centro";
+    var brg = bearing(centroid[0], centroid[1], lat, lon);
+    if (brg >= 315 || brg < 45) return "Norte";
+    if (brg >= 45 && brg < 135) return "Leste";
+    if (brg >= 135 && brg < 225) return "Sul";
+    return "Oeste";
+  }
+
+  function drawArea(pts, centroid, color, label, dashed){
+    var layer;
+    if (pts.length >= 3){
+      var inflated = inflateHull(convexHull(pts), centroid, 1.25);
+      layer = L.polygon(inflated, {
+        color: color, weight: 2, fillColor: color, fillOpacity: 0.08,
+        dashArray: dashed ? "6 5" : null
+      });
+    } else {
+      layer = L.circle(centroid, {
+        radius: 900, color: color, weight: 2, fillColor: color, fillOpacity: 0.1,
+        dashArray: dashed ? "6 5" : null
+      });
+    }
+    layer.bindTooltip(label, { permanent: true, direction: "center", className: "zone-label" });
+    layer.addTo(zoneLayer);
+  }
+
+  function renderZones(vis){
+    zoneLayer.clearLayers();
+    if (!currentShowZones) return;
+
+    var byCity = {};
+    vis.forEach(function(r){
+      if (r.lat == null) return;
+      (byCity[r.city] = byCity[r.city] || []).push(r);
+    });
+
+    Object.keys(byCity).forEach(function(city){
+      var rows = byCity[city];
+      var pts = rows.map(function(r){ return [r.lat, r.lon] });
+      var centroid = centroidOf(pts);
+      var maxSpread = 0;
+      pts.forEach(function(p){ maxSpread = Math.max(maxSpread, haversine(centroid[0], centroid[1], p[0], p[1])) });
+      var color = CITY_COLORS[city] || "#716c5c";
+      var zoningOn = maxSpread > 2.5 && rows.length >= 5;
+
+      if (!zoningOn){
+        drawArea(pts, centroid, color, city + " (" + rows.length + ")", false);
+        return;
+      }
+
+      var centerRadius = Math.max(1, maxSpread * 0.22);
+      var groups = {};
+      rows.forEach(function(r){
+        var z = zoneOf(r.lat, r.lon, centroid, centerRadius);
+        (groups[z] = groups[z] || []).push(r);
+      });
+
+      Object.keys(groups).forEach(function(zoneName){
+        var zRows = groups[zoneName];
+        var zPts = zRows.map(function(r){ return [r.lat, r.lon] });
+        var zCentroid = centroidOf(zPts);
+        var label = city + " — Zona " + zoneName + " (" + zRows.length + ")";
+        drawArea(zPts, zCentroid, color, label, zoneName !== "Centro");
+      });
+    });
+  }
 
   function renderGeo(vis){
     if (typeof L === "undefined") return;
@@ -570,9 +693,11 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(geoMapInstance);
+      zoneLayer = L.layerGroup().addTo(geoMapInstance);
       geoMarkersLayer = L.layerGroup().addTo(geoMapInstance);
     }
     geoMarkersLayer.clearLayers();
+    renderZones(vis);
 
     var withCoords = vis.filter(function(r){ return r.lat != null });
     var bounds = [];
@@ -714,6 +839,11 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
   viewBoardBtn.addEventListener("click", function(){ setView("board"); });
   viewMapBtn.addEventListener("click", function(){ setView("map"); });
   viewGeoBtn.addEventListener("click", function(){ setView("geo"); });
+
+  document.getElementById("zonesToggle").addEventListener("change", function(e){
+    currentShowZones = e.target.checked;
+    if (currentView === "geo") render();
+  });
 
   document.getElementById("radarSvg").addEventListener("click", function(e){
     var tooltip = document.getElementById("radarTooltip");
