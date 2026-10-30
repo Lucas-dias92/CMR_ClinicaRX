@@ -711,8 +711,9 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
         iconAnchor: [8, 8]
       });
       var marker = L.marker([r.lat, r.lon], { icon: icon });
-      var mapsUrl = "https://www.google.com/maps/search/?api=1&query=" + r.lat + "," + r.lon;
-      var embedUrl = "https://www.google.com/maps?q=" + r.lat + "," + r.lon + "&z=18&output=embed";
+      var placeQuery = r.name + ", " + r.bairro + ", " + r.city + " SP";
+      var mapsUrl = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(placeQuery);
+      var embedUrl = "https://www.google.com/maps?q=" + encodeURIComponent(placeQuery) + "&z=17&output=embed";
       var popupHtml =
         '<div class="geo-popup">' +
           '<div class="gp-name">' + escAttr(r.name) + '</div>' +
