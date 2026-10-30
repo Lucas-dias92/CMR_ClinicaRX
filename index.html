@@ -39,7 +39,8 @@ h1,h2{font-family:"Fraunces",Georgia,serif; text-wrap:balance; margin:0}
 
 header{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap}
 .hbrand{display:flex; align-items:center; gap:14px}
-.hbrand img{width:52px; height:52px; border-radius:12px; object-fit:cover; box-shadow:0 2px 14px rgba(47,143,230,.35)}
+.hbrand a.logo-link{display:block; line-height:0}
+.hbrand img{width:104px; height:104px; border-radius:16px; object-fit:cover; box-shadow:0 2px 14px rgba(47,143,230,.35); cursor:pointer}
 .htext .eyebrow{font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:700}
 .htext h1{font-size:clamp(1.4rem,3.4vw,1.9rem); margin-top:5px; background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent}
 .htext p{color:var(--muted); font-size:.86rem; margin-top:6px; max-width:62ch; line-height:1.5}
@@ -185,7 +186,7 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
 <div class="wrap">
   <header>
     <div class="hbrand">
-      <img src="logo.jpg" alt="Ray'd Action Física Médica">
+      <a class="logo-link" href="/" title="Voltar ao início"><img src="logo.jpg" alt="Ray'd Action Física Médica"></a>
       <div class="htext">
         <div class="eyebrow">Ray'd Action · Física Médica · Prospecção Riverly</div>
         <h1>CRM — Radiação Ionizante no Litoral Norte + SJC + Sorocaba + São Paulo</h1>
