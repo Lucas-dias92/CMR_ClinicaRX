@@ -150,12 +150,24 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
 .radar-pin.vet{fill:var(--ok)}
 .radar-pin.hos{fill:#9c4f6e}
 
+.geo-stage{
+  height:560px; border-radius:18px; overflow:hidden; border:1px solid var(--line); margin-top:14px;
+}
+.geo-pin span{width:16px; height:16px; border-radius:50%; display:block; border:2px solid #fff; box-shadow:0 1px 5px rgba(0,0,0,.45)}
+.geo-popup{font-family:"Inter",sans-serif; min-width:200px}
+.geo-popup .gp-name{font-weight:700; font-size:.85rem; margin-bottom:2px}
+.geo-popup .gp-meta{font-size:.74rem; color:#555; line-height:1.4}
+.geo-popup .gp-frame{width:100%; height:130px; border:0; border-radius:8px; margin:8px 0 6px; display:block}
+.geo-popup .gp-link{font-size:.76rem; color:#b0532a; font-weight:600; text-decoration:none}
+.geo-popup .gp-link:hover{text-decoration:underline}
+
 @media (max-width: 860px){
   .board{grid-template-columns:1fr; overflow-x:visible}
   .col{min-width:0}
 }
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
 
@@ -196,6 +208,7 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
   <div class="view-toggle">
     <button class="view-btn" id="viewBoardBtn" type="button" aria-pressed="true">🗂️ Quadro</button>
     <button class="view-btn" id="viewMapBtn" type="button" aria-pressed="false">🧭 Mapa-radar</button>
+    <button class="view-btn" id="viewGeoBtn" type="button" aria-pressed="false">🗺️ Mapa real</button>
   </div>
 
   <div class="controls">
@@ -234,6 +247,13 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
     </div>
   </div>
 
+  <div class="mapwrap" id="geoMapWrap" style="display:none">
+    <div class="radar-head">
+      <strong>Mapa real</strong> — pinos nas posições geográficas reais (OpenStreetMap, sem precisar de chave de API). Clique ou passe o mouse em cima de um pino: abre um mini Google Maps daquela clínica, e dá pra clicar em "Ver no Google Maps" pra abrir fotos, Street View e avaliações direto no Google. Respeita os mesmos filtros de cidade, categoria e busca.
+    </div>
+    <div class="geo-stage" id="geoMap"></div>
+  </div>
+
   <div class="legend">
     <span><i class="cat-dot hum"></i>Imagem humana</span>
     <span><i class="cat-dot odo"></i>Odontológico</span>
@@ -246,6 +266,7 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
   </footer>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function(){
   // name, cat, city, bairro, phone, lat, lon
@@ -537,9 +558,65 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
     document.getElementById("radarTooltip").hidden = true;
   }
 
+  var geoMapInstance = null;
+  var geoMarkersLayer = null;
+  var geoColors = { hum: "#4f7cac", odo: "#b0532a", vet: "#3f7d52", hos: "#9c4f6e" };
+
+  function renderGeo(vis){
+    if (typeof L === "undefined") return;
+    if (!geoMapInstance){
+      geoMapInstance = L.map("geoMap");
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(geoMapInstance);
+      geoMarkersLayer = L.layerGroup().addTo(geoMapInstance);
+    }
+    geoMarkersLayer.clearLayers();
+
+    var withCoords = vis.filter(function(r){ return r.lat != null });
+    var bounds = [];
+
+    withCoords.forEach(function(r){
+      var color = geoColors[catClass[r.cat]] || "#716c5c";
+      var icon = L.divIcon({
+        className: "geo-pin",
+        html: '<span style="background:' + color + '"></span>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+      var marker = L.marker([r.lat, r.lon], { icon: icon });
+      var mapsUrl = "https://www.google.com/maps/search/?api=1&query=" + r.lat + "," + r.lon;
+      var embedUrl = "https://www.google.com/maps?q=" + r.lat + "," + r.lon + "&z=18&output=embed";
+      var popupHtml =
+        '<div class="geo-popup">' +
+          '<div class="gp-name">' + escAttr(r.name) + '</div>' +
+          '<div class="gp-meta">' + escAttr(r.bairro) + ' · ' + escAttr(r.city) + '</div>' +
+          '<div class="gp-meta">' + escAttr(r.phone) + (r.dist != null ? ' · ' + r.dist.toFixed(1) + ' km' : '') + '</div>' +
+          '<iframe class="gp-frame" src="' + embedUrl + '" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>' +
+          '<a class="gp-link" href="' + mapsUrl + '" target="_blank" rel="noopener">Ver no Google Maps / fotos ↗</a>' +
+        '</div>';
+      marker.bindPopup(popupHtml, { maxWidth: 260 });
+      marker.on("mouseover", function(){ marker.openPopup(); });
+      marker.addTo(geoMarkersLayer);
+      bounds.push([r.lat, r.lon]);
+    });
+
+    if (bounds.length){
+      geoMapInstance.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+    } else {
+      geoMapInstance.setView([refPoint[0], refPoint[1]], 10);
+    }
+    setTimeout(function(){ geoMapInstance.invalidateSize(); }, 60);
+  }
+
   function render(){
     renderStats();
     var vis = visibleRows();
+    if (currentView === "geo"){
+      renderGeo(vis);
+      return;
+    }
     if (currentView === "map"){
       renderMap(vis);
       return;
@@ -619,25 +696,24 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
 
   var viewBoardBtn = document.getElementById("viewBoardBtn");
   var viewMapBtn = document.getElementById("viewMapBtn");
+  var viewGeoBtn = document.getElementById("viewGeoBtn");
   var mapWrap = document.getElementById("mapWrap");
+  var geoMapWrap = document.getElementById("geoMapWrap");
 
-  viewBoardBtn.addEventListener("click", function(){
-    currentView = "board";
-    viewBoardBtn.setAttribute("aria-pressed", "true");
-    viewMapBtn.setAttribute("aria-pressed", "false");
-    board.style.display = "";
-    mapWrap.style.display = "none";
+  function setView(view){
+    currentView = view;
+    viewBoardBtn.setAttribute("aria-pressed", view === "board" ? "true" : "false");
+    viewMapBtn.setAttribute("aria-pressed", view === "map" ? "true" : "false");
+    viewGeoBtn.setAttribute("aria-pressed", view === "geo" ? "true" : "false");
+    board.style.display = view === "board" ? "" : "none";
+    mapWrap.style.display = view === "map" ? "block" : "none";
+    geoMapWrap.style.display = view === "geo" ? "block" : "none";
     render();
-  });
+  }
 
-  viewMapBtn.addEventListener("click", function(){
-    currentView = "map";
-    viewMapBtn.setAttribute("aria-pressed", "true");
-    viewBoardBtn.setAttribute("aria-pressed", "false");
-    board.style.display = "none";
-    mapWrap.style.display = "block";
-    render();
-  });
+  viewBoardBtn.addEventListener("click", function(){ setView("board"); });
+  viewMapBtn.addEventListener("click", function(){ setView("map"); });
+  viewGeoBtn.addEventListener("click", function(){ setView("geo"); });
 
   document.getElementById("radarSvg").addEventListener("click", function(e){
     var tooltip = document.getElementById("radarTooltip");
