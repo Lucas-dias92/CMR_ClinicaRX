@@ -184,7 +184,7 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
   <header>
     <div class="htext">
       <div class="eyebrow">Riverly · Prospecção</div>
-      <h1>CRM — Radiação Ionizante no Litoral Norte + SJC + Sorocaba</h1>
+      <h1>CRM — Radiação Ionizante no Litoral Norte + SJC + Sorocaba + São Paulo</h1>
       <p>Arraste os cartões entre as colunas conforme o andamento. Filtre por cidade, categoria, ou troque o ponto de referência para recalcular a distância.</p>
     </div>
   </header>
@@ -200,6 +200,7 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
         <option value="riso">Riso Radiologia — Perequê, Ilhabela</option>
         <option value="valesul">Vale Sul Shopping — São José dos Campos</option>
         <option value="centrosoro">Centro — Sorocaba</option>
+        <option value="centrosp">Praça da Sé — São Paulo (Centro)</option>
         <option value="custom">Personalizado (coordenadas)</option>
       </select>
     </div>
@@ -229,6 +230,7 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
       <option value="Ilhabela">Ilhabela</option>
       <option value="São José dos Campos">São José dos Campos</option>
       <option value="Sorocaba">Sorocaba</option>
+      <option value="São Paulo">São Paulo</option>
     </select>
     <span class="filter-sep"></span>
     <button class="filter-btn" data-filter="all" aria-pressed="true">Todas categorias</button>
@@ -380,7 +382,65 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
     ["Prime Centro de Diagnóstico Veterinário (Tomografia)","Veterinário","Sorocaba","Vila Hortência","(15) 99660-1313",-23.510259,-47.4363909],
     ["Inova Integrated Medicine Veterinary Unit","Veterinário","Sorocaba","Vila Hortência","(15) 3333-2300",-23.5100557,-47.4368418],
     ["Vet Center Sorocaba 24h","Veterinário","Sorocaba","Vila Carvalho","(15) 3233-1083",-23.4943009,-47.4625791],
-    ["SCANPET Diagnóstico Veterinário Avançado","Veterinário","Sorocaba","Jardim Paulistano","(15) 99148-1829",-23.5147995,-47.4680946]
+    ["SCANPET Diagnóstico Veterinário Avançado","Veterinário","Sorocaba","Jardim Paulistano","(15) 99148-1829",-23.5147995,-47.4680946],
+    // São Paulo (capital)
+    ["Radiologika Radiografias Odontológicas","Odontológico","São Paulo","República","(11) 3257-1000",-23.545968,-46.6410408],
+    ["Fundação Integrada de Diagnóstico, Pesquisa, Educação e Inovação em Saúde - FIDI","Imagem humana","São Paulo","Bela Vista","(11) 5088-7900",-23.5688619,-46.6464484],
+    ["Centro Médico e Diagnóstico do Hospital Nipo-Brasileiro","Imagem humana","São Paulo","Liberdade","(11) 3274-6500",-23.5593675,-46.6361054],
+    ["CBD Brazil Diagnostic Center","Imagem humana","São Paulo","Jardim São Paulo","(11) 3230-1010",-23.4935571,-46.6168451],
+    ["Cedimen Diagnostic Center in Nuclear Medicine","Imagem humana","São Paulo","Vila Mariana","(11) 5539-5861",-23.5807002,-46.6418889],
+    ["CEDIMEN - Medicina Nuclear - Paraíso","Imagem humana","São Paulo","Paraíso","(11) 5081-8310",-23.5764793,-46.6422232],
+    ["Dimen Diagnostic Nuclear Medical","Imagem humana","São Paulo","Vila Mariana","(11) 5081-6363",-23.5835172,-46.6413173],
+    ["CDB - Diagnostics Center Brazil","Imagem humana","São Paulo","Vila Mariana","(11) 3230-1010",-23.5965893,-46.6415158],
+    ["UDDO - Unidade de Diagnóstico e Densitometria Óssea","Imagem humana","São Paulo","Bela Vista","(11) 3254-6800",-23.5590574,-46.6529336],
+    ["AURI Medical Diagnostics","Imagem humana","São Paulo","Santana","(11) 4517-4909",-23.5013542,-46.6250797],
+    ["Institute Advanced Image","Imagem humana","São Paulo","Santana","(11) 2979-1258",-23.4979193,-46.6279232],
+    ["El Diagnostics - Unit Santana","Imagem humana","São Paulo","Santana","(11) 2082-5099",-23.499835,-46.622077],
+    ["Prezecor Diagnósticos - Santana","Imagem humana","São Paulo","Santana","(11) 3934-4100",-23.5006926,-46.6221894],
+    ["ISO Radiology Diagnostic Imaging Ltd.","Imagem humana","São Paulo","Santana","(11) 2971-1129",-23.5010316,-46.6250869],
+    ["Papaiz Diagnósticos Odontológicos por Imagem - Unidade Santana","Odontológico","São Paulo","Santana","(11) 3894-3030",-23.5024822,-46.6287917],
+    ["ISO Radiologia Tatuapé","Imagem humana","São Paulo","Vila Gomes Cardim","(11) 2942-9354",-23.5457694,-46.5717663],
+    ["Uniero Radiologia - Tatuapé","Imagem humana","São Paulo","Tatuapé","(11) 2097-6739",-23.5401281,-46.5664126],
+    ["Radiodoc Tatuapé","Imagem humana","São Paulo","Tatuapé","(11) 2950-9450",-23.5479556,-46.5608934],
+    ["Dimedi Medical Diagnostics","Imagem humana","São Paulo","Tatuapé","(11) 2227-9622",-23.5402473,-46.5720755],
+    ["Cedusp Exames e Diagnósticos - Tatuapé","Imagem humana","São Paulo","Vila Azevedo","(11) 2941-7766",-23.5415782,-46.5734475],
+    ["Dr Exame - Tatuapé","Imagem humana","São Paulo","Vila Gomes Cardim","(11) 3336-0661",-23.543272,-46.5642985],
+    ["ISO Radiologia Pinheiros","Imagem humana","São Paulo","Pinheiros","(11) 3384-6456",-23.5681269,-46.6885807],
+    ["Radiocentro Instituto de Radiologia","Imagem humana","São Paulo","República","(11) 3221-0545",-23.5431026,-46.640866],
+    ["Rádiológika Radiografias Odontológicas — Unidade Bela Vista","Odontológico","São Paulo","Bela Vista","(11) 94047-3726",-23.5688399,-46.6470457],
+    ["Omega Radiologia - Vila Mariana","Imagem humana","São Paulo","Vila Clementino","(11) 5572-3352",-23.5999925,-46.639696],
+    ["RadioGraphic Radiologia Odontológica","Odontológico","São Paulo","Pompeia","(11) 2640-3000",-23.5295276,-46.685497],
+    ["CADO","Imagem humana","São Paulo","Bela Vista","(11) 3141-2528",-23.5602325,-46.6536724],
+    ["ISO Radiologia Vila Mariana","Imagem humana","São Paulo","Vila Mariana","(11) 2877-4747",-23.5790289,-46.6401607],
+    ["Oral View Radiologia Odontológica - Vila Mariana","Odontológico","São Paulo","Vila Mariana","(11) 5081-4006",-23.5958691,-46.6362172],
+    ["Radiologia Odontológica Ipiranga","Odontológico","São Paulo","Ipiranga","(11) 2639-3500",-23.5976123,-46.6104792],
+    ["Papaiz Diagnósticos Odontológicos por Imagem - Unidade Vila Mariana","Odontológico","São Paulo","Vila da Saúde","(11) 3894-3030",-23.6057641,-46.6401174],
+    ["Radi Radiologia Odontológica - Unidade Tatuapé","Odontológico","São Paulo","Tatuapé","(11) 3279-7500",-23.5466432,-46.5741513],
+    ["Oral Leste Tatuapé","Odontológico","São Paulo","Tatuapé","(11) 99475-9268",-23.5386938,-46.5750686],
+    ["Vetnasa Santo Amaro 24 horas - Clínica Veterinária 24h","Veterinário","São Paulo","Santo Amaro","(11) 5199-8041",-23.6521403,-46.6788262],
+    ["Veterinary Diagnostic Center","Veterinário","São Paulo","Santo Amaro","(11) 5186-2222",-23.630695,-46.693305],
+    ["My Vets - Hospital Veterinário 24h","Veterinário","São Paulo","Santo Amaro","(11) 2924-8122",-23.650744,-46.7012384],
+    ["Oásis Pet - Santo Amaro","Veterinário","São Paulo","Santo Amaro","(11) 5523-8449",-23.6511056,-46.6997046],
+    ["Raio-x Vet Diagnósticos Veterinários","Veterinário","São Paulo","Vila Olímpia","(11) 3045-2200",-23.6045352,-46.6758065],
+    ["Veterinary Hospital 24 Hs Vet Popular","Veterinário","São Paulo","Tucuruvi","(11) 5555-3517",-23.4775299,-46.59799],
+    ["Bem Estar Animal SP - Tucuruvi","Veterinário","São Paulo","Tucuruvi","(11) 2283-2254",-23.4814014,-46.6057618],
+    ["Animal Veterinary Clinic is Life","Veterinário","São Paulo","Tucuruvi","(11) 2953-8165",-23.4820629,-46.6127503],
+    ["NewVet - Medicina Veterinária de Diagnóstico","Veterinário","São Paulo","Tremembé","(11) 2203-2115",-23.4631369,-46.6166427],
+    ["SaveVet - Centro Veterinário 24h - Jd São Paulo","Veterinário","São Paulo","Jardim São Paulo","(11) 2971-3387",-23.4926928,-46.6179383],
+    ["EVET Veterinary Specialties","Veterinário","São Paulo","Lapa","(11) 94218-1752",-23.5323629,-46.7124739],
+    ["Hospital Veterinário da Lapa 24 Horas","Veterinário","São Paulo","Lapa","(11) 3801-2077",-23.5250993,-46.6895335],
+    ["Vetnasa Lapa | Clínica Veterinária 24 horas","Veterinário","São Paulo","Lapa","(11) 3868-3166",-23.5251362,-46.6924222],
+    ["Hospital Veterinário Medeiros Lapa 24 Horas","Veterinário","São Paulo","Vila Romana","(11) 3862-1618",-23.5313534,-46.7001738],
+    ["Ponta Porã Clínica Veterinária","Veterinário","São Paulo","Alto da Lapa","(11) 3022-5512",-23.5359529,-46.7105924],
+    ["Hospital Itaquera - Grupo Itasa","Hospitalar","São Paulo","Itaquera","(11) 2205-4140",-23.5364699,-46.4508443],
+    ["ISO Radiologia Itaquera","Imagem humana","São Paulo","Itaquera","(11) 5990-5160",-23.5398918,-46.4529731],
+    ["Hospital Santa Marcelina","Hospitalar","São Paulo","Vila Carmosina","(11) 2070-6000",-23.5543082,-46.461242],
+    ["Radivision","Imagem humana","São Paulo","Itaquera","(11) 2659-9877",-23.5405954,-46.4564489],
+    ["IDO - Itaquera Dental Documentation","Odontológico","São Paulo","Vila Carmosina","(11) 2286-1077",-23.5424647,-46.4548147],
+    ["Hospital Moriah","Hospitalar","São Paulo","Moema","(11) 5080-7800",-23.6154131,-46.6604668],
+    ["CURA Medicina Diagnóstica - Moema","Imagem humana","São Paulo","Moema","(11) 3056-4707",-23.6038081,-46.6719417],
+    ["Hospital São Paulo - Centro de Diagnósticos e Imagens","Hospitalar","São Paulo","Vila Clementino","(11) 5576-4848",-23.5978787,-46.6437847],
+    ["Hospital São Paulo","Hospitalar","São Paulo","Vila Clementino","(11) 5576-4000",-23.5977426,-46.6436056]
   ];
 
   var catClass = {"Imagem humana":"hum","Odontológico":"odo","Veterinário":"vet","Hospitalar":"hos"};
@@ -391,7 +451,8 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
     cadi: [-23.7946121, -45.400431],
     riso: [-23.8155138, -45.3657413],
     valesul: [-23.2170829, -45.8903807],
-    centrosoro: [-23.5059872, -47.459583]
+    centrosoro: [-23.5059872, -47.459583],
+    centrosp: [-23.5503, -46.6339]
   };
 
   function haversine(lat1, lon1, lat2, lon2){
@@ -578,7 +639,8 @@ footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
     "São Sebastião": "#4f7cac",
     "Ilhabela": "#3f7d52",
     "São José dos Campos": "#9c4f6e",
-    "Sorocaba": "#7d5fb0"
+    "Sorocaba": "#7d5fb0",
+    "São Paulo": "#c9972e"
   };
 
   function convexHull(pts){
