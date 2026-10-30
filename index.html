@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>CRM Radiação Litoral Norte</title>
+<style>
+/* layout: dashboard com stats + quadro kanban por status (drag) + filtros de cidade/categoria + ponto de referência para distância + radar */
+:root{
+  --bg:#f5f2ea; --surface:#ffffff; --surface-2:#faf8f3; --fg:#201d16; --muted:#716c5c;
+  --accent:#b0532a; --accent-fg:#fff5ee; --accent-soft:#f3e2d6; --line:#e4ddc9; --tag:#efe7d4;
+  --ok:#3f7d52; --warn:#b8862c; --cold:#8a8470;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15130d; --surface:#1f1c14; --surface-2:#242017; --fg:#f2eee1; --muted:#a79f87;
+    --accent:#e2884f; --accent-fg:#1c0f04; --accent-soft:#3a2a1a; --line:#36311f; --tag:#2a2518;
+    --ok:#6fbf86; --warn:#e0b25b; --cold:#8f8a74;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15130d; --surface:#1f1c14; --surface-2:#242017; --fg:#f2eee1; --muted:#a79f87;
+  --accent:#e2884f; --accent-fg:#1c0f04; --accent-soft:#3a2a1a; --line:#36311f; --tag:#2a2518;
+  --ok:#6fbf86; --warn:#e0b25b; --cold:#8f8a74;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Inter",system-ui,-apple-system,sans-serif;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+}
+h1,h2{font-family:"Fraunces",Georgia,serif; text-wrap:balance; margin:0}
+.wrap{max-width:1320px; margin:0 auto; padding-block:26px 60px}
+
+header{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap}
+.htext .eyebrow{font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:700}
+.htext h1{font-size:clamp(1.4rem,3.4vw,1.9rem); margin-top:5px}
+.htext p{color:var(--muted); font-size:.86rem; margin-top:6px; max-width:62ch; line-height:1.5}
+
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-top:22px}
+.stat{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+.stat .n{font-size:1.6rem; font-weight:700; font-variant-numeric:tabular-nums; line-height:1}
+.stat .l{font-size:.72rem; color:var(--muted); margin-top:4px; text-transform:uppercase; letter-spacing:.04em}
+.stat.accent .n{color:var(--accent)}
+
+.refbox{
+  margin-top:20px; background:var(--surface); border:1px solid var(--line); border-radius:12px;
+  padding:14px 16px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;
+}
+.refbox .field{display:flex; flex-direction:column; gap:4px; min-width:150px}
+.refbox label{font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600}
+.refbox select, .refbox input{
+  font:inherit; font-size:.82rem; border:1px solid var(--line); background:var(--surface-2); color:var(--fg);
+  padding:7px 10px; border-radius:8px;
+}
+.refbox .hint{font-size:.72rem; color:var(--muted); max-width:340px; line-height:1.4}
+.refbox .apply-btn{
+  font:inherit; font-size:.8rem; font-weight:700; background:var(--accent); color:var(--accent-fg);
+  border:none; padding:8px 16px; border-radius:8px; cursor:pointer;
+}
+.refbox .current-ref{font-size:.74rem; color:var(--accent); font-weight:600}
+
+.controls{
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:18px;
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:5; background:var(--bg); padding-block:10px;
+}
+.search{
+  flex:1; min-width:160px; max-width:260px; font:inherit; font-size:.85rem;
+  border:1px solid var(--line); background:var(--surface); color:var(--fg);
+  padding:8px 12px; border-radius:10px;
+}
+.search:focus{outline:2px solid var(--accent); outline-offset:1px}
+.filter-btn{
+  font:inherit; font-size:.78rem; font-weight:600; border:1px solid var(--line);
+  background:var(--surface); color:var(--muted); padding:7px 13px; border-radius:999px; cursor:pointer;
+  white-space:nowrap;
+}
+.filter-btn[aria-pressed="true"]{ background:var(--accent); color:var(--accent-fg); border-color:var(--accent) }
+.filter-sep{width:1px; height:20px; background:var(--line); margin:0 2px}
+.sort-select{font:inherit; font-size:.78rem; border:1px solid var(--line); background:var(--surface); color:var(--fg); padding:7px 10px; border-radius:10px; margin-left:auto}
+
+.board{display:grid; grid-template-columns:repeat(6,minmax(220px,1fr)); gap:12px; margin-top:18px; overflow-x:auto; padding-bottom:8px}
+.col{background:var(--surface-2); border:1px solid var(--line); border-radius:14px; padding:12px; min-width:220px; display:flex; flex-direction:column; gap:10px; min-height:140px}
+.col.dragover{outline:2px dashed var(--accent); outline-offset:-4px}
+.col h3{font-family:"Inter",sans-serif; font-size:.76rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); display:flex; justify-content:space-between; align-items:center}
+.col h3 .n{background:var(--tag); color:var(--fg); font-size:.7rem; border-radius:999px; padding:1px 8px; font-weight:700}
+
+.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+  cursor:grab; display:flex; flex-direction:column; gap:4px;
+}
+.card:active{cursor:grabbing}
+.card.dragging{opacity:.4}
+.card .name{font-weight:700; font-size:.84rem; line-height:1.3}
+.card .meta{font-size:.71rem; color:var(--muted); line-height:1.4}
+.card .row{display:flex; justify-content:space-between; align-items:center; gap:6px; margin-top:2px}
+.cat-dot{width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:5px; flex:none}
+.cat-dot.hum{background:#4f7cac}
+.cat-dot.odo{background:var(--accent)}
+.cat-dot.vet{background:var(--ok)}
+.cat-dot.hos{background:#9c4f6e}
+.dist-chip{font-size:.68rem; font-variant-numeric:tabular-nums; color:var(--muted); white-space:nowrap}
+.phone-btn{
+  font-size:.68rem; color:var(--accent); background:none; border:none; padding:0; cursor:pointer; text-decoration:underline;
+}
+.city-chip{font-size:.65rem; color:var(--muted); background:var(--tag); border-radius:6px; padding:1px 6px; display:inline-block}
+.empty-col{font-size:.74rem; color:var(--muted); text-align:center; padding:14px 4px; opacity:.6}
+
+.legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:16px; font-size:.74rem; color:var(--muted)}
+.legend span{display:inline-flex; align-items:center; gap:5px}
+
+footer{margin-top:40px; font-size:.76rem; color:var(--muted); line-height:1.6}
+
+.view-toggle{display:flex; gap:8px; margin-top:20px}
+.view-btn{font:inherit; font-size:.8rem; font-weight:700; border:1px solid var(--line); background:var(--surface); color:var(--muted); padding:8px 16px; border-radius:10px; cursor:pointer}
+.view-btn[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+
+.mapwrap{margin-top:16px}
+.radar-head{font-size:.78rem; color:var(--muted); line-height:1.5; max-width:70ch}
+.radar-note{font-size:.72rem; color:var(--muted); margin-top:4px; opacity:.85}
+.radar-stage{
+  position:relative; background:var(--surface-2); border:1px solid var(--line); border-radius:18px;
+  padding:14px; aspect-ratio:1/1; max-width:640px; margin:14px auto 0; overflow:hidden;
+}
+.radar-tooltip{
+  position:absolute; background:var(--surface); border:1px solid var(--accent); border-radius:10px; padding:10px 12px;
+  font-size:.76rem; max-width:220px; box-shadow:0 10px 26px rgba(0,0,0,.2); pointer-events:none; z-index:10;
+}
+.radar-tooltip .t-name{font-weight:700; margin-bottom:3px; line-height:1.3}
+.radar-tooltip .t-meta{color:var(--muted); line-height:1.5}
+
+.radar-ring{fill:none; stroke:var(--line); stroke-width:1}
+.radar-ring-label{fill:var(--muted); font-size:11px; font-family:Inter,sans-serif}
+.radar-axis{stroke:var(--line); stroke-width:1; opacity:.55}
+.radar-compass{fill:var(--muted); font-size:11px; font-family:Inter,sans-serif; font-weight:700}
+.radar-center{fill:var(--accent)}
+.radar-sweep{transform-origin:300px 300px; animation:radarspin 7s linear infinite}
+@keyframes radarspin{ from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.radar-pulse{fill:none; stroke:var(--accent); stroke-width:2; opacity:0; animation:radarpulse 3s ease-out infinite}
+@keyframes radarpulse{ 0%{ r:4; opacity:.9 } 100%{ r:240; opacity:0 } }
+.radar-pin{cursor:pointer; stroke:var(--surface); stroke-width:2; transition:r .15s}
+.radar-pin:hover{stroke-width:3; r:9}
+.radar-pin.hum{fill:#4f7cac}
+.radar-pin.odo{fill:var(--accent)}
+.radar-pin.vet{fill:var(--ok)}
+.radar-pin.hos{fill:#9c4f6e}
+
+@media (max-width: 860px){
+  .board{grid-template-columns:1fr; overflow-x:visible}
+  .col{min-width:0}
+}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700&family=Inter:wght@400;500;600;700&display=swap">
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="htext">
+      <div class="eyebrow">Riverly · Prospecção</div>
+      <h1>CRM — Radiação Ionizante no Litoral Norte + SJC + Sorocaba</h1>
+      <p>Arraste os cartões entre as colunas conforme o andamento. Filtre por cidade, categoria, ou troque o ponto de referência para recalcular a distância.</p>
+    </div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="refbox">
+    <div class="field">
+      <label for="refSelect">Ponto de referência</label>
+      <select id="refSelect">
+        <option value="serramar">Serramar Shopping — Caraguatatuba</option>
+        <option value="cadi">CADI Imagem — Praia do Porto Grande, São Sebastião</option>
+        <option value="riso">Riso Radiologia — Perequê, Ilhabela</option>
+        <option value="valesul">Vale Sul Shopping — São José dos Campos</option>
+        <option value="centrosoro">Centro — Sorocaba</option>
+        <option value="custom">Personalizado (coordenadas)</option>
+      </select>
+    </div>
+    <div class="field" id="customFields" style="display:none">
+      <label for="latInput">Latitude, Longitude</label>
+      <input id="latInput" type="text" placeholder="ex: -23.664221, -45.435559">
+    </div>
+    <button class="apply-btn" id="applyRef">Aplicar</button>
+    <div class="hint">
+      Para usar seu próprio endereço: abra o Google Maps, clique com o botão direito no local → copie as coordenadas → cole aqui em "Personalizado". A página não consegue geocodificar um endereço em texto sozinha.
+    </div>
+    <div class="current-ref" id="currentRefLabel"></div>
+  </div>
+
+  <div class="view-toggle">
+    <button class="view-btn" id="viewBoardBtn" type="button" aria-pressed="true">🗂️ Quadro</button>
+    <button class="view-btn" id="viewMapBtn" type="button" aria-pressed="false">🧭 Mapa-radar</button>
+  </div>
+
+  <div class="controls">
+    <input class="search" id="search" type="text" placeholder="Buscar por nome ou bairro...">
+    <select class="sort-select" id="citySel" style="margin-left:0">
+      <option value="all">Todas as cidades</option>
+      <option value="Caraguatatuba">Caraguatatuba</option>
+      <option value="São Sebastião">São Sebastião</option>
+      <option value="Ilhabela">Ilhabela</option>
+      <option value="São José dos Campos">São José dos Campos</option>
+      <option value="Sorocaba">Sorocaba</option>
+    </select>
+    <span class="filter-sep"></span>
+    <button class="filter-btn" data-filter="all" aria-pressed="true">Todas categorias</button>
+    <button class="filter-btn" data-filter="Imagem humana" aria-pressed="false">Imagem humana</button>
+    <button class="filter-btn" data-filter="Odontológico" aria-pressed="false">Odontológico</button>
+    <button class="filter-btn" data-filter="Veterinário" aria-pressed="false">Veterinário</button>
+    <button class="filter-btn" data-filter="Hospitalar" aria-pressed="false">Hospitalar</button>
+    <select class="sort-select" id="sortSel">
+      <option value="dist">Ordenar: mais próximo</option>
+      <option value="name">Ordenar: nome A-Z</option>
+      <option value="city">Ordenar: cidade</option>
+    </select>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="mapwrap" id="mapWrap" style="display:none">
+    <div class="radar-head">
+      <strong>Radar de distância</strong> — o centro é o ponto de referência escolhido acima. Cada anel marca uma faixa de distância (em linha reta) e a direção do pino aponta a direção real (bússola) até lá. Clique num pino para ver os dados. Respeita os mesmos filtros de cidade, categoria e busca.
+      <div class="radar-note" id="radarNote"></div>
+    </div>
+    <div class="radar-stage">
+      <svg id="radarSvg" viewBox="0 0 600 600" width="100%" height="100%"></svg>
+      <div class="radar-tooltip" id="radarTooltip" hidden></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i class="cat-dot hum"></i>Imagem humana</span>
+    <span><i class="cat-dot odo"></i>Odontológico</span>
+    <span><i class="cat-dot vet"></i>Veterinário</span>
+    <span><i class="cat-dot hos"></i>Hospitalar</span>
+  </div>
+
+  <footer>
+    Base levantada por busca na web (CNES/DataSUS + Google Places) em Caraguatatuba, São Sebastião, Ilhabela, São José dos Campos e Sorocaba, revisada contra duplicidade antes de publicar. Distância é linha reta (não é rota de carro). Rede social e responsável técnico não constam nessas fontes para a maioria dos itens — confirme por contato direto antes de fechar negócio. Status e ponto de referência ficam salvos só neste navegador.
+  </footer>
+</div>
+
+<script>
+(function(){
+  // name, cat, city, bairro, phone, lat, lon
+  var data = [
+    // Caraguatatuba
+    ["Hospital Regional do Litoral Norte","Hospitalar","Caraguatatuba","Pontal de Sta. Marina","(12) 3885-1450",-23.6576192,-45.4399224],
+    ["Casa de Saúde Stella Maris","Hospitalar","Caraguatatuba","Centro","(12) 3897-3300",-23.6249859,-45.4230127],
+    ["UPA Central de Caraguatatuba","Hospitalar","Caraguatatuba","Jardim Primavera","(12) 3897-2113",-23.6270008,-45.4180845],
+    ["Centro Médico e Odontológico Fênix","Hospitalar","Caraguatatuba","Centro","(12) 3883-9348",null,null],
+    ["Clínica Mult Imagem","Imagem humana","Caraguatatuba","Sumaré","(12) 3882-3896",-23.6199926,-45.4044811],
+    ["Roveri Radiologia","Imagem humana","Caraguatatuba","Sumaré","(12) 99136-4301",-23.6189345,-45.4020743],
+    ["Simed Serviços Médicos Integrados","Imagem humana","Caraguatatuba","Sumaré","(12) 3883-3090",-23.6188882,-45.4021627],
+    ["Eras Centro Médico e Laboratório","Imagem humana","Caraguatatuba","Centro","(12) 2103-9702",-23.6222173,-45.4067044],
+    ["Laboratório Unimed Caraguatatuba","Imagem humana","Caraguatatuba","Sumaré","(12) 3886-9900",-23.6219008,-45.4051115],
+    ["Laboratório Oswaldo Cruz — Centro","Imagem humana","Caraguatatuba","Centro","(12) 2123-9241",-23.625175,-45.4126062],
+    ["Laboratório Oswaldo Cruz — Serramar","Imagem humana","Caraguatatuba","Dentro do Serramar Shopping","(12) 2123-9200",-23.6542869,-45.4375417],
+    ["SIMEDI Medicina Diagnóstica por Imagem","Imagem humana","Caraguatatuba","Centro","(12) 3887-3535",-23.6213984,-45.4074507],
+    ["Total Quality Laboratório","Imagem humana","Caraguatatuba","Centro","(12) 3887-3535",-23.6213648,-45.4075194],
+    ["Plani Digital Caraguatatuba","Imagem humana","Caraguatatuba","Centro","(12) 3797-5411",null,null],
+    ["iNEO Radiologia Digital","Odontológico","Caraguatatuba","Centro","(12) 98859-7986",-23.6238898,-45.4127369],
+    ["Doma Radiologia e Tomo 3D","Odontológico","Caraguatatuba","Jardim Primavera","(12) 3883-4909",-23.6258399,-45.4145463],
+    ["AmorSaúde Caraguatatuba","Odontológico","Caraguatatuba","Jardim Aruã","(12) 3881-3644",-23.6473774,-45.4317496],
+    ["Dentemar Odontologia","Odontológico","Caraguatatuba","Centro","(12) 3881-2876",-23.6236556,-45.4109983],
+    ["André Trunkl — Cons. Odontológico","Odontológico","Caraguatatuba","Centro","(12) 3883-1647",null,null],
+    ["Help Dente — Cons. Odontológico","Odontológico","Caraguatatuba","Indaiá","(12) 3887-6535",null,null],
+    ["Marcus Bueno de Oliveira — Cons. Odontológico","Odontológico","Caraguatatuba","Centro","(12) 3881-2397",null,null],
+    ["Tais Moreira Leite — Cons. Odontológico","Odontológico","Caraguatatuba","Poiares","(12) 3888-1629",null,null],
+    ["CEDIMVET Raio-X Veterinário","Veterinário","Caraguatatuba","Poiares (a domicílio)","(12) 99672-1214",-23.6413223,-45.4344794],
+    ["Liga Vet Hospital Veterinário","Veterinário","Caraguatatuba","Indaiá","(12) 2101-9333",-23.6293722,-45.4251331],
+    ["Vet Life Hospital Veterinário","Veterinário","Caraguatatuba","Sumaré","0800 300 3100",-23.6231595,-45.3995004],
+    ["Vetvitta Clínica Veterinária","Veterinário","Caraguatatuba","Jardim Primavera","(12) 99767-5923",-23.625567,-45.415856],
+    ["Care Veterinary Clinic","Veterinário","Caraguatatuba","Centro","(12) 3883-8249",-23.6259942,-45.4143744],
+    ["Clínica Veterinária Animal","Veterinário","Caraguatatuba","Centro","(12) 99126-2549",-23.6230996,-45.4151226],
+
+    // São Sebastião
+    ["CADI Centro Avançado de Diagnósticos por Imagem","Imagem humana","São Sebastião","Praia do Porto Grande","(12) 3892-4544",-23.7946121,-45.400431],
+    ["Doma Radiologia (São Sebastião)","Imagem humana","São Sebastião","Centro","(12) 3892-1207",-23.8012191,-45.4052166],
+    ["Clínica Viddas — Médicos e Diagnósticos","Imagem humana","São Sebastião","Praia do Arrastão","(12) 3892-1334",-23.7710287,-45.4035818],
+    ["Ecorad Imagem","Imagem humana","São Sebastião","Centro","(12) 98834-2898",-23.8034495,-45.4027374],
+    ["UltraMed Boiçucanga","Imagem humana","São Sebastião","Boiçucanga","(12) 99770-3775",-23.7829174,-45.6218413],
+    ["TSX Radiologia Odontológica","Odontológico","São Sebastião","Boiçucanga","(12) 98824-8002",-23.7831513,-45.6253137],
+    ["Boiçucanga Radiologia Odontológica BRO 3D","Odontológico","São Sebastião","Boiçucanga","(12) 3865-1442",-23.7837116,-45.624202],
+    ["Hospital de Clínicas de São Sebastião","Hospitalar","São Sebastião","Centro","(12) 3893-3200",-23.8040733,-45.4024764],
+    ["Hospital de Clínicas de São Sebastião — Boiçucanga","Hospitalar","São Sebastião","Boiçucanga","(12) 3865-2040",-23.7837393,-45.6286409],
+    ["Pronto Socorro Central","Hospitalar","São Sebastião","Centro","(12) 3892-2525",-23.8043281,-45.4024872],
+    ["Liv Vet Clínica Veterinária","Veterinário","São Sebastião","Centro","(12) 97814-4820",-23.8035875,-45.4029884],
+    ["VETBACANA Clínica Veterinária","Veterinário","São Sebastião","Praia Deserta","(12) 98144-6699",-23.7868842,-45.3988608],
+    ["Clínica Veterinária Mundo Animal (São Sebastião)","Veterinário","São Sebastião","Praia de São Francisco","(12) 3862-1501",-23.7609907,-45.411664],
+    ["Best Friends Veterinary Clinic","Veterinário","São Sebastião","Praia do Porto Grande","(12) 2103-6970",-23.7914556,-45.399336],
+
+    // Ilhabela
+    ["Riso Radiologia e Tomografia Digital","Imagem humana","Ilhabela","Perequê","(12) 99257-0492",-23.8155138,-45.3657413],
+    ["MED ILHA Ultrassonografia","Imagem humana","Ilhabela","Itaguaçu","(12) 3896-1515",-23.8035264,-45.3645664],
+    ["CROL Clínica de Radiologia Odontológica Litoral","Odontológico","Ilhabela","Perequê","(12) 3896-3233",-23.8153371,-45.3666504],
+    ["Crol Radiologia Odontológica Ilhabela","Odontológico","Ilhabela","Perequê","(12) 99663-7016",-23.8142133,-45.3664564],
+    ["Hospital Municipal Governador Mario Covas Jr","Hospitalar","Ilhabela","Barra Velha","(12) 3895-3520",-23.8233829,-45.3783486],
+    ["Santa Casa de Ilhabela","Hospitalar","Ilhabela","Centro","(12) 3896-1710",-23.7785343,-45.3573622],
+    ["Centro de Referência Animal de Ilhabela","Veterinário","Ilhabela","Barra Velha","(12) 3895-7229",-23.8220291,-45.3659707],
+    ["Clipet Clínica Veterinária","Veterinário","Ilhabela","Itaquanduba","(12) 99604-9597",-23.7980871,-45.3636499],
+    ["Ilhavet Clínica Veterinária","Veterinário","Ilhabela","Barra Velha","(12) 99238-2012",-23.823349,-45.375044],
+    ["Clínica Veterinária Mundo Animal (Ilhabela)","Veterinário","Ilhabela","Perequê","(12) 99763-9251",-23.812867,-45.3656616],
+    ["Clínica Veterinária Dr. Denis","Veterinário","Ilhabela","Água Branca","(12) 3896-3281",-23.8235101,-45.3618701],
+
+    // São José dos Campos
+    ["Tomovale Centro de Diagnóstico por Imagem","Imagem humana","São José dos Campos","Vila Adyana","(12) 3202-6222",-23.197789,-45.892031],
+    ["Solumedi São José dos Campos","Imagem humana","São José dos Campos","Centro","(12) 3209-0105",-23.1821545,-45.8847711],
+    ["Santa Casa Imagens Diagnósticas","Imagem humana","São José dos Campos","Centro","(12) 3876-1999",-23.186917,-45.8823062],
+    ["URC Diagnósticos por Imagem","Imagem humana","São José dos Campos","Vila Adyana","+55 3003-3230",-23.197107,-45.8938953],
+    ["RN Clínica Medicina Diagnóstica","Imagem humana","São José dos Campos","Jardim Alvorada","(12) 98280-5335",-23.2246649,-45.910188],
+    ["Instituto de Radiologia Dr. Suélio Marinho de Queiroz","Imagem humana","São José dos Campos","Vila Adyana","(12) 3202-6222",-23.1977892,-45.8920309],
+    ["FCS Diagnóstico Odontológico","Odontológico","São José dos Campos","Vila Adyana","(12) 3924-2800",-23.1983212,-45.8928458],
+    ["DVI Diagnóstico Odontológico","Odontológico","São José dos Campos","Vila Adyana","(12) 3943-2064",-23.1972397,-45.8937252],
+    ["Gia+ Odonto Imagem","Odontológico","São José dos Campos","Vila Adyana","(12) 97401-8584",-23.203278,-45.8941989],
+    ["Visão X Radiologia Odontológica","Odontológico","São José dos Campos","Jardim Aquarius","(12) 97402-6943",-23.216134,-45.909964],
+    ["FCS Diagnóstico Odontológico — Vale Sul Shopping","Odontológico","São José dos Campos","Jardim Satélite","(12) 3924-2800",-23.2170829,-45.8903807],
+    ["Hospital Regional de São José dos Campos","Hospitalar","São José dos Campos","Parque Industrial","(12) 3932-1300",-23.2385253,-45.9075392],
+    ["Santa Casa São José dos Campos","Hospitalar","São José dos Campos","Centro","(12) 3876-1999",-23.186774,-45.8824541],
+    ["VFP Hospital Veterinário by +Pet","Veterinário","São José dos Campos","Jardim Aquarius","(12) 3042-1119",-23.2242775,-45.9098983],
+    ["Animage Diagnóstico Veterinário por Imagem","Veterinário","São José dos Campos","Vila Ema","(12) 3923-8251",-23.203685,-45.899267],
+    ["Hospital Veterinário ProntoDog","Veterinário","São José dos Campos","Jardim São Dimas","(12) 3921-8832",-23.1933438,-45.8886626],
+    ["Hospital Veterinário Grupo Estimação — Jd. Industrias 24h","Veterinário","São José dos Campos","Jardim das Industrias","(12) 3204-8767",-23.2305434,-45.9208969],
+    ["Diagnovet Veterinary Clinic","Veterinário","São José dos Campos","Jardim Renata","(12) 3941-5026",-23.2043817,-45.8934949],
+
+    // Sorocaba
+    ["Tec Imagem Sorocaba","Imagem humana","Sorocaba","Jardim Vergueiro","(15) 2018-4195",-23.506287,-47.4600375],
+    ["JR Tec Imagem Diagnóstico","Imagem humana","Sorocaba","Jardim Paulistano","(15) 99284-4444",-23.5073545,-47.4631986],
+    ["Top Imagem","Imagem humana","Sorocaba","Jardim Vergueiro","(15) 3234-1436",-23.5077929,-47.456936],
+    ["IDS Institute of Diagnostic Sorocaba","Imagem humana","Sorocaba","Jardim Vergueiro","(15) 3331-6220",-23.5053371,-47.46157],
+    ["Centro Médico Sorocaba — Matriz","Imagem humana","Sorocaba","Centro","(15) 2102-0800",-23.5059872,-47.459583],
+    ["ROS 3 Clínica de Radiologia Odontológica","Odontológico","Sorocaba","Centro","(15) 3229-5217",-23.5006244,-47.4687531],
+    ["Sorocaba Clinic Dental Radiology — ROS","Odontológico","Sorocaba","Centro","(15) 3229-5217",-23.4982925,-47.4690738],
+    ["Clínica ROS — Unidade Zona Norte (Shopping Cidade)","Odontológico","Sorocaba","Jardim Santa Cecília","(15) 3302-2229",-23.4563597,-47.482763],
+    ["Lumén Radiologia Odontológica","Odontológico","Sorocaba","Jardim Vergueiro","(15) 3232-7072",-23.5081125,-47.4597646],
+    ["DVI Diagnóstico Odontológico — Centro","Odontológico","Sorocaba","Centro","(15) 3033-0808",-23.504644,-47.46447],
+    ["Hospital Regional de Sorocaba Linneu Matos Silveira","Hospitalar","Sorocaba","Jardim Vergueiro","(15) 3332-9100",-23.5092915,-47.4582901],
+    ["Hospital Regional de Sorocaba Adib Jatene","Hospitalar","Sorocaba","Fazenda Imperial","(15) 3500-9900",-23.5268599,-47.5191904],
+    ["Hospital Evangélico de Sorocaba","Hospitalar","Sorocaba","Vila Jardini","(15) 2101-6600",-23.5051353,-47.4725071],
+    ["Hospital Santa Lucinda de Sorocaba","Hospitalar","Sorocaba","Jardim Vergueiro","(15) 3212-9900",-23.5093095,-47.4562261],
+    ["Centro Médico São José — Hospital Evangélico","Hospitalar","Sorocaba","Vila Jardini","(15) 3288-4848",-23.5047534,-47.4727349],
+    ["HVS Hospital Veterinário Sorocaba","Veterinário","Sorocaba","Jardim Simus","(15) 3329-1000",-23.5021799,-47.5076018],
+    ["Prime Centro de Diagnóstico Veterinário (Tomografia)","Veterinário","Sorocaba","Vila Hortência","(15) 99660-1313",-23.510259,-47.4363909],
+    ["Inova Integrated Medicine Veterinary Unit","Veterinário","Sorocaba","Vila Hortência","(15) 3333-2300",-23.5100557,-47.4368418],
+    ["Vet Center Sorocaba 24h","Veterinário","Sorocaba","Vila Carvalho","(15) 3233-1083",-23.4943009,-47.4625791],
+    ["SCANPET Diagnóstico Veterinário Avançado","Veterinário","Sorocaba","Jardim Paulistano","(15) 99148-1829",-23.5147995,-47.4680946]
+  ];
+
+  var catClass = {"Imagem humana":"hum","Odontológico":"odo","Veterinário":"vet","Hospitalar":"hos"};
+  var statuses = ["Não contatado","Contato enviado","Respondeu","Reunião marcada","Fechado","Sem interesse"];
+
+  var REF_POINTS = {
+    serramar: [-23.664221, -45.435559],
+    cadi: [-23.7946121, -45.400431],
+    riso: [-23.8155138, -45.3657413],
+    valesul: [-23.2170829, -45.8903807],
+    centrosoro: [-23.5059872, -47.459583]
+  };
+
+  function haversine(lat1, lon1, lat2, lon2){
+    var R = 6371;
+    var toRad = function(d){ return d * Math.PI / 180 };
+    var dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.asin(Math.sqrt(a));
+  }
+
+  function bearing(lat1, lon1, lat2, lon2){
+    var toRad = function(d){ return d * Math.PI / 180 };
+    var toDeg = function(r){ return r * 180 / Math.PI };
+    var dLon = toRad(lon2 - lon1);
+    var y = Math.sin(dLon) * Math.cos(toRad(lat2));
+    var x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+  }
+
+  function escAttr(s){
+    return String(s == null ? "" : s).replace(/"/g, "&quot;");
+  }
+
+  var refPoint = REF_POINTS.serramar;
+  var refLabel = "Serramar Shopping — Caraguatatuba";
+  try{
+    var savedRef = JSON.parse(localStorage.getItem("crmRefPoint") || "null");
+    if (savedRef && savedRef.lat != null){ refPoint = [savedRef.lat, savedRef.lon]; refLabel = savedRef.label; }
+  }catch(e){}
+
+  var rows = data.map(function(d, i){
+    return { id:i, name:d[0], cat:d[1], city:d[2], bairro:d[3], phone:d[4], lat:d[5], lon:d[6] };
+  });
+
+  function recomputeDist(){
+    rows.forEach(function(r){
+      r.dist = (r.lat != null) ? haversine(refPoint[0], refPoint[1], r.lat, r.lon) : null;
+    });
+  }
+  recomputeDist();
+
+  var saved = {};
+  try{ saved = JSON.parse(localStorage.getItem("crmStatusV3") || "{}"); }catch(e){}
+  rows.forEach(function(r){ r.status = saved[r.id] || statuses[0]; });
+
+  function persistStatus(){
+    try{
+      var out = {};
+      rows.forEach(function(r){ out[r.id] = r.status; });
+      localStorage.setItem("crmStatusV3", JSON.stringify(out));
+    }catch(e){}
+  }
+
+  var currentFilter = "all";
+  var currentCity = "all";
+  var currentSearch = "";
+  var currentSort = "dist";
+  var currentView = "board";
+
+  var board = document.getElementById("board");
+  var statsEl = document.getElementById("stats");
+  var currentRefLabelEl = document.getElementById("currentRefLabel");
+
+  function updateRefLabel(){
+    currentRefLabelEl.textContent = "Referência atual: " + refLabel;
+  }
+  updateRefLabel();
+
+  function visibleRows(){
+    return rows.filter(function(r){
+      if (currentFilter !== "all" && r.cat !== currentFilter) return false;
+      if (currentCity !== "all" && r.city !== currentCity) return false;
+      if (currentSearch){
+        var hay = (r.name + " " + r.bairro + " " + r.city).toLowerCase();
+        if (hay.indexOf(currentSearch) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderStats(){
+    var vis = visibleRows();
+    var byStatus = {};
+    statuses.forEach(function(s){ byStatus[s] = 0 });
+    vis.forEach(function(r){ byStatus[r.status]++ });
+    var items = [
+      { n: vis.length, l: "Visíveis", accent:false },
+      { n: byStatus["Respondeu"] + byStatus["Reunião marcada"] + byStatus["Fechado"], l: "Engajados", accent:true },
+      { n: byStatus["Reunião marcada"], l: "Reunião marcada", accent:false },
+      { n: byStatus["Fechado"], l: "Fechado", accent:true },
+      { n: byStatus["Não contatado"], l: "Não contatado", accent:false }
+    ];
+    statsEl.innerHTML = items.map(function(it){
+      return '<div class="stat'+(it.accent?' accent':'')+'"><div class="n">'+it.n+'</div><div class="l">'+it.l+'</div></div>';
+    }).join("");
+  }
+
+  function makeCard(r){
+    var card = document.createElement("div");
+    card.className = "card";
+    card.draggable = true;
+    card.dataset.id = r.id;
+    card.innerHTML =
+      '<div class="name"><i class="cat-dot '+catClass[r.cat]+'"></i>'+r.name+'</div>' +
+      '<div class="meta">'+r.bairro+' <span class="city-chip">'+r.city+'</span></div>' +
+      '<div class="row">' +
+        '<button class="phone-btn" type="button">'+r.phone+'</button>' +
+        '<span class="dist-chip">'+(r.dist != null ? r.dist.toFixed(1)+' km' : '—')+'</span>' +
+      '</div>';
+    card.addEventListener("dragstart", function(){ card.classList.add("dragging") });
+    card.addEventListener("dragend", function(){ card.classList.remove("dragging") });
+    card.querySelector(".phone-btn").addEventListener("click", function(){
+      var btn = this;
+      var original = btn.textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(r.phone).then(function(){
+          btn.textContent = "Copiado!";
+          setTimeout(function(){ btn.textContent = original }, 1200);
+        }).catch(function(){});
+      }
+    });
+    return card;
+  }
+
+  function renderMap(vis){
+    var withCoords = vis.filter(function(r){ return r.lat != null });
+    var without = vis.length - withCoords.length;
+    var maxR = 240;
+    var maxDist = 10;
+    withCoords.forEach(function(r){ if (r.dist > maxDist) maxDist = r.dist });
+    maxDist = Math.ceil(maxDist / 10) * 10 || 10;
+
+    var parts = [];
+
+    parts.push('<g class="radar-sweep"><path d="M300,300 L300,60 A240,240 0 0,1 457,113 Z" fill="var(--accent)" opacity="0.28"></path></g>');
+    parts.push('<circle class="radar-pulse" cx="300" cy="300" r="4" style="animation-delay:0s"></circle>');
+    parts.push('<circle class="radar-pulse" cx="300" cy="300" r="4" style="animation-delay:1.5s"></circle>');
+
+    for (var i = 1; i <= 4; i++){
+      var r = maxR * i / 4;
+      parts.push('<circle class="radar-ring" cx="300" cy="300" r="' + r + '"></circle>');
+      var labelVal = Math.round(maxDist * i / 4);
+      parts.push('<text class="radar-ring-label" x="304" y="' + (300 - r + 12) + '">' + labelVal + ' km</text>');
+    }
+
+    var dirs = [["N",0],["NE",45],["E",90],["SE",135],["S",180],["SW",225],["W",270],["NW",315]];
+    dirs.forEach(function(d){
+      var rad = d[1] * Math.PI / 180;
+      var x2 = 300 + maxR * Math.sin(rad), y2 = 300 - maxR * Math.cos(rad);
+      parts.push('<line class="radar-axis" x1="300" y1="300" x2="' + x2 + '" y2="' + y2 + '"></line>');
+      var lx = 300 + (maxR + 22) * Math.sin(rad), ly = 300 - (maxR + 22) * Math.cos(rad);
+      parts.push('<text class="radar-compass" x="' + lx + '" y="' + ly + '" text-anchor="middle" dominant-baseline="middle">' + d[0] + '</text>');
+    });
+
+    parts.push('<circle class="radar-center" cx="300" cy="300" r="6"></circle>');
+
+    withCoords.forEach(function(r){
+      var ang = bearing(refPoint[0], refPoint[1], r.lat, r.lon);
+      var rad = ang * Math.PI / 180;
+      var radius = Math.min(maxR, (r.dist / maxDist) * maxR);
+      var x = 300 + radius * Math.sin(rad);
+      var y = 300 - radius * Math.cos(rad);
+      var cls = "radar-pin " + catClass[r.cat];
+      parts.push('<circle class="' + cls + '" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="7" ' +
+        'data-name="' + escAttr(r.name) + '" data-bairro="' + escAttr(r.bairro) + '" data-city="' + escAttr(r.city) + '" ' +
+        'data-phone="' + escAttr(r.phone) + '" data-dist="' + (r.dist != null ? r.dist.toFixed(1) : '') + '"></circle>');
+    });
+
+    document.getElementById("radarSvg").innerHTML = parts.join("");
+    document.getElementById("radarNote").textContent = without > 0
+      ? (without + " local(is) sem coordenadas não aparecem no radar.")
+      : "";
+    document.getElementById("radarTooltip").hidden = true;
+  }
+
+  function render(){
+    renderStats();
+    var vis = visibleRows();
+    if (currentView === "map"){
+      renderMap(vis);
+      return;
+    }
+    var sorted = vis.slice().sort(function(a,b){
+      if (currentSort === "name") return a.name.localeCompare(b.name);
+      if (currentSort === "city") return a.city.localeCompare(b.city) || a.name.localeCompare(b.name);
+      if (a.dist == null) return 1;
+      if (b.dist == null) return -1;
+      return a.dist - b.dist;
+    });
+
+    board.innerHTML = "";
+    statuses.forEach(function(status){
+      var col = document.createElement("div");
+      col.className = "col";
+      col.dataset.status = status;
+
+      var inCol = sorted.filter(function(r){ return r.status === status; });
+
+      var h3 = document.createElement("h3");
+      h3.innerHTML = '<span>'+status+'</span><span class="n">'+inCol.length+'</span>';
+      col.appendChild(h3);
+
+      if (inCol.length === 0){
+        var empty = document.createElement("div");
+        empty.className = "empty-col";
+        empty.textContent = "Arraste um cartão aqui";
+        col.appendChild(empty);
+      } else {
+        inCol.forEach(function(r){ col.appendChild(makeCard(r)) });
+      }
+
+      col.addEventListener("dragover", function(e){ e.preventDefault(); col.classList.add("dragover") });
+      col.addEventListener("dragleave", function(){ col.classList.remove("dragover") });
+      col.addEventListener("drop", function(e){
+        e.preventDefault();
+        col.classList.remove("dragover");
+        var dragging = board.querySelector(".card.dragging");
+        if (!dragging) return;
+        var id = parseInt(dragging.dataset.id, 10);
+        var row = rows.filter(function(r){ return r.id === id })[0];
+        if (row){
+          row.status = status;
+          persistStatus();
+          render();
+        }
+      });
+
+      board.appendChild(col);
+    });
+  }
+
+  document.querySelectorAll(".filter-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll(".filter-btn").forEach(function(b){ b.setAttribute("aria-pressed","false") });
+      btn.setAttribute("aria-pressed","true");
+      currentFilter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  document.getElementById("citySel").addEventListener("change", function(e){
+    currentCity = e.target.value;
+    render();
+  });
+
+  document.getElementById("search").addEventListener("input", function(e){
+    currentSearch = e.target.value.trim().toLowerCase();
+    render();
+  });
+
+  document.getElementById("sortSel").addEventListener("change", function(e){
+    currentSort = e.target.value;
+    render();
+  });
+
+  var viewBoardBtn = document.getElementById("viewBoardBtn");
+  var viewMapBtn = document.getElementById("viewMapBtn");
+  var mapWrap = document.getElementById("mapWrap");
+
+  viewBoardBtn.addEventListener("click", function(){
+    currentView = "board";
+    viewBoardBtn.setAttribute("aria-pressed", "true");
+    viewMapBtn.setAttribute("aria-pressed", "false");
+    board.style.display = "";
+    mapWrap.style.display = "none";
+    render();
+  });
+
+  viewMapBtn.addEventListener("click", function(){
+    currentView = "map";
+    viewMapBtn.setAttribute("aria-pressed", "true");
+    viewBoardBtn.setAttribute("aria-pressed", "false");
+    board.style.display = "none";
+    mapWrap.style.display = "block";
+    render();
+  });
+
+  document.getElementById("radarSvg").addEventListener("click", function(e){
+    var tooltip = document.getElementById("radarTooltip");
+    var target = e.target.closest ? e.target.closest(".radar-pin") : null;
+    if (!target){ tooltip.hidden = true; return; }
+    var stage = target.closest(".radar-stage");
+    var stageRect = stage.getBoundingClientRect();
+    var pinRect = target.getBoundingClientRect();
+    tooltip.innerHTML =
+      '<div class="t-name">' + target.dataset.name + '</div>' +
+      '<div class="t-meta">' + target.dataset.bairro + ' · ' + target.dataset.city + '<br>' +
+      target.dataset.phone + (target.dataset.dist ? ' · ' + target.dataset.dist + ' km' : '') + '</div>';
+    tooltip.hidden = false;
+    var left = pinRect.left - stageRect.left + 14;
+    var top = pinRect.top - stageRect.top - 6;
+    if (left + 220 > stageRect.width) left = pinRect.left - stageRect.left - 234;
+    tooltip.style.left = Math.max(4, left) + "px";
+    tooltip.style.top = Math.max(4, top) + "px";
+  });
+
+  var refSelect = document.getElementById("refSelect");
+  var customFields = document.getElementById("customFields");
+  refSelect.addEventListener("change", function(){
+    customFields.style.display = (refSelect.value === "custom") ? "flex" : "none";
+  });
+
+  document.getElementById("applyRef").addEventListener("click", function(){
+    var val = refSelect.value;
+    if (val === "custom"){
+      var raw = document.getElementById("latInput").value.trim();
+      var parts = raw.split(",").map(function(s){ return parseFloat(s.trim()) });
+      if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])){
+        alert("Coordenadas inválidas. Use o formato: -23.664221, -45.435559");
+        return;
+      }
+      refPoint = [parts[0], parts[1]];
+      refLabel = "Personalizado (" + parts[0].toFixed(4) + ", " + parts[1].toFixed(4) + ")";
+    } else {
+      refPoint = REF_POINTS[val];
+      refLabel = refSelect.options[refSelect.selectedIndex].text;
+    }
+    try{
+      localStorage.setItem("crmRefPoint", JSON.stringify({ lat: refPoint[0], lon: refPoint[1], label: refLabel }));
+    }catch(e){}
+    recomputeDist();
+    updateRefLabel();
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
